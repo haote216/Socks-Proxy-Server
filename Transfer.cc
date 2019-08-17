@@ -2,21 +2,22 @@
 
 void TransferServer::ConnectEventHandle(int fd)
 {
+	//
 	//Á¬½Ósocks
-	TraceLog("ConnectEventHandle");
+	TraceDebug("ConnectEventHandle");
 
 }
 void TransferServer::ReadEventHandle(int fd)
 {
-	TraceLog("ReadEventHandle");
+	TraceDebug("ReadEventHandle");
 }
 void TransferServer::WriteEventHandle(int fd)
 {
-	TraceLog("WriteEventHandle");
+	TraceDebug("WriteEventHandle");
 }
 
 int main()
 {
-	TransferServer server("123.207.58.25", 8001, 8000);
+	TransferServer server("192.168.153.128", 8001, 8000);
 	server.Start();
 }
