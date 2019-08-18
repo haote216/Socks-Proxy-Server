@@ -5,11 +5,15 @@
 #include<stdarg.h>
 #include<errno.h>
 #include<string.h>
+#include<assert.h>
 
 #include<iostream>
+#include<map>
 using namespace std;
 
 #include<unistd.h>
+#include<fcntl.h>
+#include<netdb.h>
 #include<sys/types.h>
 #include<sys/socket.h>
 #include<netinet/in.h>
