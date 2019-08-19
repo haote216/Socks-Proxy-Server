@@ -90,19 +90,99 @@ void EpollServer::EventLoop()
 	}
 }
 
-//传输
-//void Forwording(Channel* clientChannel, Channel* serverChannel)
-//{
-//	const size_t buflen = 4096;
-//	char buf[buflen];
-//	int rlen = recv(clientChannel->_fd, buf, buflen);
-//	if (rlen > 0)
-//	{
-//		int slen = send(serverChannel->_fd, buf, rlen);
-//		if (slen < rlen)//网络情况差，一部分没有发出去
-//		{
-//			SendInLoop()
-//		}	
-//	}
-//	else if (rlen == 0)
-//}
+void EpollServer::SendInLoop(int fd, const char* buf, int len)
+{
+	int slen = send(fd, buf, len, 0);
+	if (slen < 0)
+	{
+		ErrorDebug("send: to %d", fd);
+	}
+	else if (slen < len)
+	{
+		TraceDebug("recv %d bytes, send %d bytes, left %d send in loop", len, slen, len - slen);
+		map<int, Connect*>::iterator it = _fdConnectMap.find(fd);
+		if (it != _fdConnectMap.end())
+		{
+			Connect*  con = it->second;
+			Channel* channel = &con->_clientChannel;
+			if (fd == con->_serverChannel._fd)
+				channel = &con->_serverChannel;
+
+			int events = EPOLLIN | EPOLLOUT | EPOLLONESHOT;
+			OPEvent(fd, events, EPOLL_CTL_MOD);
+
+			channel->_buffer.append(buf + slen);
+		}
+	}
+}
+
+void EpollServer::Forwarding(Channel* clientChannel, Channel* serverChannel, bool sendencry, bool recvdecrypt)
+{
+	char buf[4096];
+	int rlen = recv(clientChannel->_fd, buf, 4096, 0);
+	if (rlen < 0)
+	{
+		ErrorDebug("recv: %d", clientChannel->_fd);
+	}
+	else if (rlen == 0)
+	{
+		//client channel发起关闭
+		shutdown(serverChannel->_fd, SHUT_WR);
+		RemoveConnect(clientChannel->_fd);
+	}
+	else
+	{
+		if (recvdecrypt)
+		{
+			Decrypt(buf, rlen);
+		}
+
+		if (sendencry)
+		{
+			Encry(buf, rlen);
+		}
+		buf[rlen] = '\0';
+		SendInLoop(serverChannel->_fd, buf, rlen);
+	}
+}
+
+void EpollServer::RemoveConnect(int fd)
+{
+	OPEvent(fd, 0, EPOLL_CTL_DEL);
+	map<int, Connect*>::iterator it = _fdConnectMap.find(fd);
+	if (it != _fdConnectMap.end())
+	{
+		Connect* con = it->second;
+		if (--con->_ref == 0)
+		{
+			delete con;
+			_fdConnectMap.erase(it);
+		}
+	}
+	else
+	{
+		assert(false);
+	}
+}
+
+void EpollServer::WriteEventHandle(int fd)
+{
+	map<int, Connect*>::iterator it = _fdConnectMap.find(fd);
+	if (it != _fdConnectMap.end())
+	{
+		Connect* con = it->second;
+		Channel* channel = &con->_clientChannel;
+		if (fd == con->_serverChannel._fd)
+		{
+			channel = &con->_serverChannel;
+		}
+
+		string buff;
+		buff.swap(channel->_buffer);
+		SendInLoop(fd, buff.c_str(), buff.size());
+	}
+	else
+	{
+		assert(fd);
+	}
+}

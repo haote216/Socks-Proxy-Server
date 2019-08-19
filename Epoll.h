@@ -2,6 +2,18 @@
 #define __EPOLL_H__
 
 #include"Header.h"
+#include"Encry.h"
+
+class IgnoreSigPipe
+{
+public:
+	IgnoreSigPipe()
+	{
+		::signal(SIGPIPE, SIG_IGN);
+	}
+};
+
+static IgnoreSigPipe initPIPE_IGN;
 
 class EpollServer
 {
@@ -52,10 +64,7 @@ public:
 	//´¿Ðéº¯Êý£¬×ÓÀà±ØÐëÖØÐ´
 	virtual void ConnectEventHandle(int fd) = 0;
 	virtual void ReadEventHandle(int fd) = 0;
-	virtual void WriteEventHandle(int fd) = 0;
-
-	//´«Êä
-	//void Forwording(Channel* clientChannel, Channel* serverChannel);
+	virtual void WriteEventHandle(int fd);
 
 	//×´Ì¬
 	enum Socks5State
@@ -91,6 +100,10 @@ public:
 			, _ref(0)
 		{}
 	};
+
+	void SendInLoop(int fd, const char* buf, int len);
+	void Forwarding(Channel* clientChannel, Channel* serverChannel, bool sendencry, bool recvdecrypt);
+	void RemoveConnect(int fd);
 
 private:
 	//·À¿½±´
